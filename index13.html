@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Límites y Continuidad</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/10.6.4/math.min.js"></script>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            background-color: #000000; 
+            color: #00a33f; 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+            padding: 20px; 
+        }
+        .calculator { 
+            border: 1px solid #ccc; 
+            padding: 20px; 
+            border-radius: 10px; 
+            width: 100%; 
+            max-width: 500px; 
+            background: #fff; 
+            box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.1); 
+        }
+        .calculator input, .calculator button { 
+            width: 100%; 
+            padding: 10px; 
+            margin: 5px 0; 
+            border-radius: 5px; 
+            border: 1px solid #ccc; 
+            font-size: 1em; 
+        }
+        .calculator button {
+            background-color: #008a2e;
+            color: white;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        .calculator button:hover {
+            background-color: #008d4b;
+        }
+        .result { 
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 5px;
+            background-color: #f8fafc;
+        }
+        .result-item {
+            margin: 10px 0;
+            padding: 5px;
+            border-left: 3px solid #008337;
+            padding-left: 10px;
+        }
+        .error {
+            color: #dc2626;
+            font-weight: bold;
+        }
+        .success {
+            color: #059669;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <h1>Calculadora de Límites y Continuidad</h1>
+    <div class="calculator">
+        <label for="function-input">Función (en términos de x):</label>
+        <input type="text" id="function-input" placeholder="Ej. sin(x)/x">
+        
+        <label for="limit-point">Punto de límite:</label>
+        <input type="number" id="limit-point" value="0" step="any">
+        
+        <button onclick="calculateLimit()">Calcular Límite</button>
+        
+        <div class="result" id="result-output"></div>
+    </div>
+
+    <script>
+        function evaluateAtPoint(func, x) {
+            try {
+                return math.evaluate(func, { x: x });
+            } catch (error) {
+                return null;
+            }
+        }
+
+        function calculateLateralLimit(func, point, side, delta = 0.000001) {
+            const direction = side === 'left' ? -1 : 1;
+            const points = [];
+            
+            // Evaluar la función en varios puntos cercanos
+            for (let i = 1; i <= 5; i++) {
+                const x = point + (direction * delta * i);
+                const y = evaluateAtPoint(func, x);
+                if (y !== null && !isNaN(y) && isFinite(y)) {
+                    points.push(y);
+                }
+            }
+
+            if (points.length === 0) {
+                return null;
+            }
+
+            // Verificar si los valores convergen
+            const tolerance = 0.0001;
+            const areConverging = points.every((val, i) => {
+                if (i === 0) return true;
+                return Math.abs(val - points[i-1]) < tolerance;
+            });
+
+            return areConverging ? points[points.length - 1] : null;
+        }
+
+        function calculateLimit() {
+            const funcInput = document.getElementById("function-input").value;
+            const point = parseFloat(document.getElementById("limit-point").value);
+            const resultDiv = document.getElementById("result-output");
+            
+            try {
+                const func = math.parse(funcInput).toString(); // Validar sintaxis
+                
+                // Calcular límites laterales
+                const leftLimit = calculateLateralLimit(func, point, 'left');
+                const rightLimit = calculateLateralLimit(func, point, 'right');
+                
+                // Evaluar el punto si es posible
+                const pointValue = evaluateAtPoint(func, point);
+
+                let html = `<div class="result-item">Función: ${func}</div>`;
+                html += `<div class="result-item">Punto de evaluación: x = ${point}</div>`;
+                
+                // Mostrar límites laterales
+                if (leftLimit !== null) {
+                    html += `<div class="result-item">Límite por la izquierda: ${leftLimit.toFixed(6)}</div>`;
+                } else {
+                    html += `<div class="result-item error">Límite por la izquierda: No existe</div>`;
+                }
+                
+                if (rightLimit !== null) {
+                    html += `<div class="result-item">Límite por la derecha: ${rightLimit.toFixed(6)}</div>`;
+                } else {
+                    html += `<div class="result-item error">Límite por la derecha: No existe</div>`;
+                }
+
+                // Verificar si existe el límite
+                if (leftLimit !== null && rightLimit !== null && Math.abs(leftLimit - rightLimit) < 0.0001) {
+                    html += `<div class="result-item success">El límite existe y es: ${((leftLimit + rightLimit) / 2).toFixed(6)}</div>`;
+                } else {
+                    html += `<div class="result-item error">El límite no existe</div>`;
+                }
+
+                // Verificar continuidad
+                if (pointValue !== null && !isNaN(pointValue) && isFinite(pointValue)) {
+                    html += `<div class="result-item">Valor de la función en x = ${point}: ${pointValue.toFixed(6)}</div>`;
+                    
+                    if (leftLimit !== null && rightLimit !== null && 
+                        Math.abs(leftLimit - rightLimit) < 0.0001 && 
+                        Math.abs(pointValue - leftLimit) < 0.0001) {
+                        html += `<div class="result-item success">La función es continua en x = ${point}</div>`;
+                    } else {
+                        html += `<div class="result-item error">La función no es continua en x = ${point}</div>`;
+                    }
+                } else {
+                    html += `<div class="result-item error">La función no está definida en x = ${point}</div>`;
+                }
+
+                resultDiv.innerHTML = html;
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="error">Error en la función ingresada. Verifica la sintaxis.</div>`;
+            }
+        }
+    </script>
+</body>
+</html>
